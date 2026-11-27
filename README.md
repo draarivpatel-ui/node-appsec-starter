@@ -2,7 +2,7 @@
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/draarivpatel-ui/node-appsec-starter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/draarivpatel-ui/node-appsec-starter)
 
-A runnable Node.js AppSec reference API and executable OWASP attack reproduction suite. It composes 18 zero dependency security libraries from npm into one hardened `node:http` server, then proves both the benign path and the attack path with real HTTP requests.
+A runnable Node.js AppSec reference API and executable OWASP attack reproduction suite. It composes 17 zero dependency runtime security libraries from npm into one hardened `node:http` server, then proves both the benign path and the attack path with real HTTP requests.
 
 ## Quickstart
 
@@ -27,16 +27,17 @@ In development and test modes, missing secrets are generated with `crypto.random
 
 ## Supply chain proof
 
-`npm ci` installs exactly **18 packages** and no transitive third-party packages:
+`npm ci` installs the 17 runtime security libraries plus development-only security scanning and fuzz tooling:
 
-- 17 runtime security libraries
-- `sentinel-lint` as the only development dependency
+- 17 runtime security libraries with no runtime dependencies
+- `sentinel-lint` and `fast-check` as development dependencies
+- development-only transitive entries required by those tools
 
 The test suite verifies all three layers:
 
-1. `package.json` contains only the expected dependencies.
-2. `package-lock.json` contains exactly 18 `node_modules/` package entries.
-3. Every installed `node_modules/<package>/package.json` has an empty or absent `dependencies` object.
+1. `package.json` contains exactly the expected runtime dependencies.
+2. `package-lock.json` contains only runtime packages and the development-only dependency closure.
+3. Every installed runtime `node_modules/<package>/package.json` has an empty or absent `dependencies` object.
 
 `node_modules/` is intentionally not committed. `package-lock.json` is committed so `npm ci` reproduces the same tree in CI.
 
@@ -133,7 +134,7 @@ GitHub Actions runs the full matrix on every push and pull request:
 - `npm test`
 - `npx sentinel-lint scan src --json --quiet --fail-on error`
 
-The matrix is 6 jobs. The test suite itself also runs `sentinel-lint` against the intentionally vulnerable fixture in `fixtures/vulnerable-sample/` and validates the SARIF structure.
+The matrix is 6 jobs, plus a separate fast-check fuzz job. The test suite itself also runs `sentinel-lint` against the intentionally vulnerable fixture in `fixtures/vulnerable-sample/` and validates the SARIF structure.
 
 ## Security posture and limits
 

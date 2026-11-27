@@ -1,0 +1,9 @@
+test/
+tests/
+.github/
+coverage/
+*.log
+*.tgz
+.DS_Store
+sentinel-src.sarif
+.tmp-test/

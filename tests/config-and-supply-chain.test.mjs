@@ -23,7 +23,7 @@ const RUNTIME_PACKAGES = Object.freeze([
   '@aarivbuildz/secretsweep'
 ]);
 
-const ALL_PACKAGES = Object.freeze([...RUNTIME_PACKAGES, 'sentinel-lint']);
+const DEV_ROOT_PACKAGES = Object.freeze(['fast-check', 'sentinel-lint']);
 
 const EXPECTED_EXPORTS = Object.freeze({
   pathcage: ['createCage', 'resolveSafePath'],
@@ -47,6 +47,39 @@ const EXPECTED_EXPORTS = Object.freeze({
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+function packageNameFromLockKey(key) {
+  const parts = key.split('/');
+  return key.includes('node_modules/@') ? parts.slice(-2).join('/') : parts.at(-1);
+}
+
+function installedLockKeys(lock) {
+  return Object.keys(lock.packages || {}).filter((key) => key.startsWith('node_modules/')).sort();
+}
+
+function developmentClosure(lock) {
+  const keys = installedLockKeys(lock);
+  const byName = new Map(keys.map((key) => [packageNameFromLockKey(key), key]));
+  const closure = new Set();
+  const queue = [...DEV_ROOT_PACKAGES];
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (closure.has(name)) continue;
+    closure.add(name);
+    const key = byName.get(name);
+    if (!key) continue;
+    queue.push(...Object.keys(lock.packages[key].dependencies || {}));
+  }
+  return closure;
+}
+
+function expectedInstalledNames(lock) {
+  const devClosure = developmentClosure(lock);
+  return {
+    devClosure,
+    names: new Set([...RUNTIME_PACKAGES, ...devClosure])
+  };
 }
 
 function installedPackageJsonPaths(root) {
@@ -93,51 +126,62 @@ export const tests = [
     }
   },
   {
-    name: 'package manifest contains exactly the seventeen runtime libraries and sentinel lint as the only dev dependency',
+    name: 'package manifest contains exactly the seventeen runtime libraries and keeps fuzz tooling development-only',
     async run({ root }) {
       const manifest = readJson(path.join(root, 'package.json'));
       assert.deepEqual(Object.keys(manifest.dependencies || {}).sort(), [...RUNTIME_PACKAGES].sort());
-      assert.deepEqual(Object.keys(manifest.devDependencies || {}), ['sentinel-lint']);
+      assert.deepEqual(Object.keys(manifest.devDependencies || {}).sort(), [...DEV_ROOT_PACKAGES].sort());
       assert.equal(Object.keys(manifest.dependencies || {}).length, 17);
-      assert.equal(Object.keys(manifest.devDependencies || {}).length, 1);
+      assert.equal(Object.keys(manifest.devDependencies || {}).length, DEV_ROOT_PACKAGES.length);
+      for (const name of DEV_ROOT_PACKAGES) {
+        assert.equal(manifest.dependencies[name], undefined, `${name} must stay development-only`);
+      }
     }
   },
   {
-    name: 'node_modules contains exactly the eighteen expected package directories',
+    name: 'node_modules contains exactly the runtime packages plus the development-only closure',
     async run({ root }) {
       const names = installedPackageJsonPaths(root).map((file) => readJson(file).name).sort();
-      assert.deepEqual(names, [...ALL_PACKAGES].sort());
-      assert.equal(names.length, 18);
+      const lock = readJson(path.join(root, 'package-lock.json'));
+      const expected = expectedInstalledNames(lock);
+      assert.deepEqual(names, [...expected.names].sort());
+      assert.equal(names.length, expected.names.size);
+      for (const name of DEV_ROOT_PACKAGES) assert.ok(expected.devClosure.has(name), `${name} is missing from the lockfile`);
     }
   },
   {
-    name: 'package-lock records exactly the eighteen installed packages for npm ci',
+    name: 'package-lock records exactly the runtime packages plus the development-only closure for npm ci',
     async run({ root }) {
       const lock = readJson(path.join(root, 'package-lock.json'));
       assert.equal(lock.lockfileVersion, 3);
-      const installed = Object.keys(lock.packages || {}).filter((key) => key.startsWith('node_modules/')).sort();
-      assert.equal(installed.length, 18);
-      const names = installed.map((key) => {
-        const parts = key.split('/');
-        return key.includes('node_modules/@') ? `${parts.at(-2)}/${parts.at(-1)}` : parts.at(-1);
-      }).sort();
-      assert.deepEqual(names, [...ALL_PACKAGES].sort());
+      const installed = installedLockKeys(lock);
+      const expected = expectedInstalledNames(lock);
+      assert.equal(installed.length, expected.names.size);
+      const names = installed.map(packageNameFromLockKey).sort();
+      assert.deepEqual(names, [...expected.names].sort());
       assert.deepEqual(Object.keys(lock.packages[''].dependencies || {}).sort(), [...RUNTIME_PACKAGES].sort());
-      assert.deepEqual(Object.keys(lock.packages[''].devDependencies || {}), ['sentinel-lint']);
+      assert.deepEqual(Object.keys(lock.packages[''].devDependencies || {}).sort(), [...DEV_ROOT_PACKAGES].sort());
     }
   },
   {
-    name: 'all eighteen packages are zero dependency at runtime with no transitive third-party bloat',
+    name: 'runtime security packages are zero dependency and development packages stay outside the runtime closure',
     async run({ root }) {
       const lock = readJson(path.join(root, 'package-lock.json'));
-      const installedKeys = Object.keys(lock.packages || {}).filter((key) => key.startsWith('node_modules/'));
+      const installedKeys = installedLockKeys(lock);
+      const expected = expectedInstalledNames(lock);
+      const manifests = new Map(installedPackageJsonPaths(root).map((file) => {
+        const manifest = readJson(file);
+        return [manifest.name, manifest];
+      }));
       for (const key of installedKeys) {
         const entry = lock.packages[key];
-        assert.deepEqual(entry.dependencies || {}, {}, `${key} must not have runtime dependencies`);
-      }
-      for (const packageJson of installedPackageJsonPaths(root)) {
-        const manifest = readJson(packageJson);
-        assert.deepEqual(manifest.dependencies || {}, {}, `${manifest.name} must not have runtime dependencies`);
+        const name = packageNameFromLockKey(key);
+        if (RUNTIME_PACKAGES.includes(name)) {
+          assert.deepEqual(entry.dependencies || {}, {}, `${key} must not have runtime dependencies`);
+          assert.deepEqual(manifests.get(name).dependencies || {}, {}, `${name} must not have runtime dependencies`);
+        } else {
+          assert.ok(expected.devClosure.has(name), `${name} is outside the development-only closure`);
+        }
       }
     }
   },
@@ -158,27 +202,19 @@ export const tests = [
   {
     name: 'node_modules contains no unexpected top-level package scopes or nested dependency trees',
     async run({ root }) {
+      const lock = readJson(path.join(root, 'package-lock.json'));
+      const expected = expectedInstalledNames(lock);
       const topLevel = fs.readdirSync(path.join(root, 'node_modules'), { withFileTypes: true })
         .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
         .map((entry) => entry.name)
         .sort();
-      assert.deepEqual(topLevel, [
-        '@aarivbuildz',
-        'cookiecage',
-        'corscage',
-        'envcage',
-        'headersafe',
-        'jsoncage',
-        'logcage',
-        'pathcage',
-        'redirectcage',
-        'sentinel-lint',
-        'zipcage'
-      ].sort());
+      const expectedTopLevel = new Set([...expected.names].map((name) => name.startsWith('@') ? name.split('/')[0] : name));
+      assert.deepEqual(topLevel, [...expectedTopLevel].sort());
       for (const packageJson of installedPackageJsonPaths(root)) {
         const nested = path.join(path.dirname(packageJson), 'node_modules');
         assert.equal(fs.existsSync(nested), false, `${nested} should not exist`);
       }
     }
   }
+
 ];

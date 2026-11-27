@@ -2,7 +2,7 @@
   "name": "node-appsec-starter",
   "version": "1.0.0",
   "private": true,
-  "description": "Runnable Node.js AppSec reference API and OWASP attack reproduction test suite composing 18 zero dependency security libraries",
+  "description": "Runnable Node.js AppSec reference API and OWASP attack reproduction test suite composing 17 zero dependency runtime security libraries",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node scripts/run-tests.mjs",
+    "test:fuzz": "node --test test/fuzz.test.js",
     "lint:security": "sentinel-lint scan src --format sarif --output sentinel-src.sarif"
   },
   "keywords": [
@@ -25,6 +26,7 @@
   "author": "draarivpatel-ui",
   "license": "MIT",
   "devDependencies": {
+    "fast-check": "4.10.3",
     "sentinel-lint": "0.2.0"
   },
   "dependencies": {

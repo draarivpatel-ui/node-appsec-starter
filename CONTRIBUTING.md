@@ -4,7 +4,7 @@ Thanks for helping improve this AppSec reference starter.
 
 ## Ground rules
 
-- Keep the project dependency free outside the 18 packages already listed in `package.json`.
+- Keep the runtime dependency surface limited to the 17 security libraries already listed in `package.json`; keep scanning and fuzz tooling development-only.
 - Do not add a runtime framework. The point of the starter is visible composition on the Node.js `http` module.
 - Do not commit secrets, tokens, cookies, private keys, real webhook payloads, or personal data.
 - Keep `package-lock.json` committed and `node_modules/` untracked.
