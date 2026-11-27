@@ -1,5 +1,7 @@
 # node-appsec-starter
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/draarivpatel-ui/node-appsec-starter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/draarivpatel-ui/node-appsec-starter)
+
 A runnable Node.js AppSec reference API and executable OWASP attack reproduction suite. It composes 18 zero dependency security libraries from npm into one hardened `node:http` server, then proves both the benign path and the attack path with real HTTP requests.
 
 ## Quickstart
