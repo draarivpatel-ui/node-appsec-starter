@@ -1,0 +1,49 @@
+{
+  "name": "node-appsec-starter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runnable Node.js AppSec reference API and OWASP attack reproduction test suite composing 18 zero dependency security libraries",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "lint:security": "sentinel-lint scan src --format sarif --output sentinel-src.sarif"
+  },
+  "keywords": [
+    "nodejs",
+    "security",
+    "appsec",
+    "owasp",
+    "starter-template",
+    "zero-dependency",
+    "devsecops",
+    "sarif"
+  ],
+  "author": "draarivpatel-ui",
+  "license": "MIT",
+  "devDependencies": {
+    "sentinel-lint": "0.2.0"
+  },
+  "dependencies": {
+    "@aarivbuildz/csrfshield": "1.0.1",
+    "@aarivbuildz/csvshield": "1.0.0",
+    "@aarivbuildz/hookverify": "1.0.1",
+    "@aarivbuildz/htmlclean": "0.1.0",
+    "@aarivbuildz/jwtguard": "1.0.1",
+    "@aarivbuildz/regex-shield": "1.0.0",
+    "@aarivbuildz/secretsweep": "1.0.0",
+    "@aarivbuildz/urlguard": "0.1.0",
+    "cookiecage": "1.0.0",
+    "corscage": "1.0.0",
+    "envcage": "1.0.0",
+    "headersafe": "1.0.1",
+    "jsoncage": "1.0.0",
+    "logcage": "1.0.0",
+    "pathcage": "1.0.1",
+    "redirectcage": "1.0.0",
+    "zipcage": "1.0.0"
+  }
+}
